@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:file_selector/file_selector.dart';
+
 import '../../data/providers.dart';
+import '../../services/export/backup_service.dart';
 import '../../services/export/export_service.dart';
 import '../../services/notifications/attendance_notification_service.dart';
 import '../../services/notifications/notification_core.dart';
 import '../../services/widget/home_widget_service.dart';
+import '../today/today_providers.dart';
 import '../profiles/profiles_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -29,6 +33,8 @@ class SettingsScreen extends StatelessWidget {
           _ReminderSection(),
           Divider(height: 1),
           _SectionHeader('Data'),
+          _BackupTile(),
+          _RestoreTile(),
           _ExportTile(),
         ],
       ),
@@ -277,6 +283,128 @@ class _ReminderSectionState extends ConsumerState<_ReminderSection> {
           ),
       ],
     );
+  }
+}
+
+// ── Full backup tile ──────────────────────────────────────────────────────────
+
+class _BackupTile extends ConsumerStatefulWidget {
+  const _BackupTile();
+
+  @override
+  ConsumerState<_BackupTile> createState() => _BackupTileState();
+}
+
+class _BackupTileState extends ConsumerState<_BackupTile> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Symbols.backup),
+      title: const Text('Back Up All Data'),
+      subtitle: const Text('Save everything to a file you can keep'),
+      trailing: _busy
+          ? const SizedBox(
+              width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Symbols.chevron_right),
+      onTap: _busy ? null : _backup,
+    );
+  }
+
+  Future<void> _backup() async {
+    setState(() => _busy = true);
+    try {
+      await BackupService.exportBackup(ref.read(databaseProvider));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+// ── Restore tile ────────────────────────────────────────────────────────────
+
+class _RestoreTile extends ConsumerStatefulWidget {
+  const _RestoreTile();
+
+  @override
+  ConsumerState<_RestoreTile> createState() => _RestoreTileState();
+}
+
+class _RestoreTileState extends ConsumerState<_RestoreTile> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Symbols.restore),
+      title: const Text('Restore From Backup'),
+      subtitle: const Text('Replace all data with a backup file'),
+      trailing: _busy
+          ? const SizedBox(
+              width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Symbols.chevron_right),
+      onTap: _busy ? null : _restore,
+    );
+  }
+
+  Future<void> _restore() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Restore Data?'),
+        content: const Text(
+            'This replaces ALL current data with the contents of the backup '
+            'file. This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    const group = XTypeGroup(
+      label: 'AlooTrack backup',
+      extensions: ['json'],
+      mimeTypes: ['application/json'],
+    );
+    final file = await openFile(acceptedTypeGroups: [group]);
+    final path = file?.path;
+    if (path == null || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      final db = ref.read(databaseProvider);
+      await BackupService.importBackup(db, path);
+      // Re-resolve the active profile and refresh outputs against new data.
+      ref.invalidate(activeProfileNotifierProvider);
+      await ShiftNotification.refresh(db);
+      await HomeWidgetService.refresh(db);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Data restored. Restart the app if anything looks off.')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 

@@ -107,7 +107,13 @@ class ShiftNotification {
       final paused = breaks.any((b) => b.endAt == null);
       final net = ShiftRepository.netDuration(shift, breaks);
       final profile = await db.profileDao.getById(shift.profileId);
-      await _showActive(profile?.name ?? 'Shift', net, paused);
+      // Include the task currently being worked on, if any.
+      String? taskTitle;
+      final log = await db.taskDao.getOpenLog();
+      if (log != null) {
+        taskTitle = (await db.taskDao.getTaskById(log.taskId))?.title;
+      }
+      await _showActive(profile?.name ?? 'Shift', net, paused, taskTitle);
       return;
     }
     final persistent =
@@ -121,7 +127,7 @@ class ShiftNotification {
   }
 
   static Future<void> _showActive(
-      String name, Duration net, bool paused) async {
+      String name, Duration net, bool paused, String? taskTitle) async {
     // Setting `when` in the past and usesChronometer:true makes Android render
     // a live-ticking timer with no per-second updates needed (the ST trick).
     final whenMs = DateTime.now().millisecondsSinceEpoch - net.inMilliseconds;
@@ -144,10 +150,18 @@ class ShiftNotification {
             showsUserInterface: false, cancelNotification: false),
       ],
     );
+    final String body;
+    if (paused) {
+      body = taskTitle == null
+          ? '${DurationFormatter.hhmmss(net)} · paused'
+          : '$taskTitle · paused';
+    } else {
+      body = taskTitle ?? 'In progress';
+    }
     await localNotifications.show(
       _shiftNotifId,
       paused ? 'Paused — $name' : 'Working — $name',
-      paused ? DurationFormatter.hhmmss(net) : 'In progress',
+      body,
       NotificationDetails(android: details),
     );
   }

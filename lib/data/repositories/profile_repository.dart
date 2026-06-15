@@ -43,14 +43,22 @@ class ProfileRepository {
     required String iconName,
     int targetDailyMinutes = 480,
     int targetWeeklyMinutes = 2400,
-  }) =>
-      _dao.insert(ProfilesCompanion.insert(
-        name: name,
-        colorHex: Value(colorHex),
-        iconName: Value(iconName),
-        targetDailyMinutes: Value(targetDailyMinutes),
-        targetWeeklyMinutes: Value(targetWeeklyMinutes),
-      ));
+  }) async {
+    final id = await _dao.insert(ProfilesCompanion.insert(
+      name: name,
+      colorHex: Value(colorHex),
+      iconName: Value(iconName),
+      targetDailyMinutes: Value(targetDailyMinutes),
+      targetWeeklyMinutes: Value(targetWeeklyMinutes),
+    ));
+    // Ensure there's always a valid default profile (e.g. profiles created
+    // from Settings before any default was set).
+    final existing = await _settings.get(SettingsKeys.defaultProfileId);
+    if (existing == null || int.tryParse(existing) == null) {
+      await setDefaultProfile(id);
+    }
+    return id;
+  }
 
   Future<void> updateProfile(Profile profile) =>
       _dao.updateProfile(profile.toCompanion(true));

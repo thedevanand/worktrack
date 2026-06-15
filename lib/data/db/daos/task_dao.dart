@@ -76,6 +76,9 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
   Future<int> deleteTask(int id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
 
+  Future<Task?> getTaskById(int id) =>
+      (select(tasks)..where((t) => t.id.equals(id))).getSingleOrNull();
+
   // ── All tasks / backlog (cross-profile) ──────────────────────────────────────
 
   Stream<List<TaskWithType>> watchAllTasksForDateAllProfiles(DateTime date) {

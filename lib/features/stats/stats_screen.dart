@@ -149,9 +149,18 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: SegmentedButton<_Period>(
+              // The default selected-check uses the built-in MaterialIcons
+              // font (renders as tofu); turn it off and use Material Symbols.
+              showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: _Period.week, label: Text('Week')),
-                ButtonSegment(value: _Period.month, label: Text('Month')),
+                ButtonSegment(
+                    value: _Period.week,
+                    label: Text('Week'),
+                    icon: Icon(Symbols.date_range)),
+                ButtonSegment(
+                    value: _Period.month,
+                    label: Text('Month'),
+                    icon: Icon(Symbols.calendar_month)),
               ],
               selected: {_period},
               onSelectionChanged: (s) => _setPeriod(s.first),

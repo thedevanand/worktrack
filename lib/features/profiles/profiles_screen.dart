@@ -97,6 +97,7 @@ class _ProfileCard extends ConsumerWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         trailing: PopupMenuButton<String>(
+          icon: const Icon(Symbols.more_vert),
           onSelected: (v) => _onMenuSelect(context, ref, v),
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('Edit')),

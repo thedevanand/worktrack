@@ -14,13 +14,23 @@ class ActiveProfileNotifier extends StateNotifier<Profile?> {
 
   Future<void> _load() async {
     // If a shift is currently running, the active profile MUST be that shift's
-    // profile — otherwise on relaunch we'd show the default profile (DAPS) and
+    // profile — otherwise on relaunch we'd show the wrong profile and
     // wrongly attribute the running shift's time to it.
     final shift = await _ref.read(shiftRepositoryProvider).getActiveShift();
     final profileRepo = _ref.read(profileRepositoryProvider);
-    final p = shift != null
+    Profile? p = shift != null
         ? await profileRepo.getById(shift.profileId)
         : await profileRepo.getDefaultProfile();
+    // Self-heal: if no default is set (e.g. profiles were created from Settings
+    // before any default existed), fall back to the first available profile so
+    // the app is never stuck with a null active profile.
+    if (p == null) {
+      final all = await profileRepo.getActiveProfiles();
+      if (all.isNotEmpty) {
+        p = all.first;
+        await profileRepo.setDefaultProfile(p.id);
+      }
+    }
     if (mounted) state = p;
   }
 
@@ -64,15 +74,6 @@ final activeBreakProvider = StreamProvider.autoDispose<Break?>((ref) {
 
 final openTaskLogProvider = StreamProvider.autoDispose<TaskTimeLog?>((ref) {
   return ref.watch(databaseProvider).taskDao.watchOpenLog();
-});
-
-/// Not-done tasks for a profile (today first, then other dates) — for the
-/// "what are you working on" picker.
-final pickableTasksProvider =
-    StreamProvider.autoDispose.family<List<TaskWithType>, int>((ref, profileId) {
-  return ref.watch(databaseProvider).taskDao.watchAllTasks().map((all) => all
-      .where((t) => t.task.endAt == null && t.task.profileId == profileId)
-      .toList());
 });
 
 final taskByIdProvider =

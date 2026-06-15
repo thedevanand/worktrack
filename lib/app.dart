@@ -64,35 +64,46 @@ class _StartupGateState extends ConsumerState<_StartupGate> {
   }
 
   Future<void> _boot() async {
+    // Ask for permissions first and independently, so a later init failure
+    // can never prevent the prompt from showing.
+    unawaited(PermissionService.requestAll());
+
+    // Routing decision in isolation — must never be affected by the
+    // notification/widget init that can throw in release builds.
+    List<dynamic> profiles = const [];
+    try {
+      profiles = await ref.read(profileRepositoryProvider).getActiveProfiles();
+    } catch (e, st) {
+      debugPrint('AlooTrack: failed to read profiles: $e\n$st');
+    }
+
+    // Best-effort init — any failure here is non-fatal and isolated.
     try {
       tz.initializeTimeZones();
       await initLocalNotifications();
       await AttendanceNotificationService.scheduleDaily(hour: 9, minute: 30);
       await HomeWidgetService.init();
-
-      final profiles =
-          await ref.read(profileRepositoryProvider).getActiveProfiles();
-
       final db = ref.read(databaseProvider);
       await ShiftNotification.refresh(db);
       await HomeWidgetService.refresh(db);
-      unawaited(PermissionService.requestAll());
-
-      if (mounted) {
-        setState(() => _state =
-            profiles.isEmpty ? _GateState.onboarding : _GateState.ready);
-      }
     } catch (e, st) {
-      debugPrint('AlooTrack startup failed: $e\n$st');
-      if (mounted) setState(() => _state = _GateState.ready);
+      debugPrint('AlooTrack: non-fatal startup init failed: $e\n$st');
+    }
+
+    if (mounted) {
+      setState(() => _state =
+          profiles.isEmpty ? _GateState.onboarding : _GateState.ready);
     }
   }
 
-  Future<void> _onOnboardingDone() async {
-    final db = ref.read(databaseProvider);
-    await ShiftNotification.refresh(db);
-    await HomeWidgetService.refresh(db);
+  /// Switch to the main app IMMEDIATELY, then refresh outputs in the
+  /// background — a slow/failing refresh must never strand the onboarding
+  /// button on its loading spinner.
+  void _onOnboardingDone() {
     if (mounted) setState(() => _state = _GateState.ready);
+    final db = ref.read(databaseProvider);
+    ShiftNotification.refresh(db);
+    HomeWidgetService.refresh(db);
   }
 
   @override

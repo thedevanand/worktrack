@@ -336,35 +336,54 @@ class _CurrentTaskCard extends ConsumerWidget {
   }
 
   Future<void> _pick(BuildContext context, WidgetRef ref) async {
-    final tasks = ref.read(pickableTasksProvider(profile.id)).valueOrNull ?? [];
+    // Fetch directly (awaited) — reading an unwatched provider can be null.
+    final all = await ref.read(databaseProvider).taskDao.watchAllTasks().first;
+    final open = all.where((t) => t.task.endAt == null).toList();
+    final mine = open.where((t) => t.task.profileId == profile.id).toList();
+    final others = open.where((t) => t.task.profileId != profile.id).toList();
+    if (!context.mounted) return;
+
+    ListTile tile(TaskWithType t) => ListTile(
+          leading: CircleAvatar(
+              radius: 6, backgroundColor: colorFromHex(t.taskType.colorHex)),
+          title: Text(t.task.title),
+          subtitle: Text(t.taskType.name),
+          onTap: () => Navigator.pop(context, t.task.id),
+        );
+
+    Widget sectionHeader(String label) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        );
+
     final selected = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => SafeArea(
-        child: tasks.isEmpty
+        child: open.isEmpty
             ? const Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('No open tasks for this profile. Add tasks in the '
-                    'Calendar tab.'),
+                child: Text('No open tasks yet. Add tasks in the Calendar tab.'),
               )
             : ListView(
                 shrinkWrap: true,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                     child: Text('What are you working on?',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                   ),
-                  ...tasks.map((t) => ListTile(
-                        leading: CircleAvatar(
-                            radius: 6,
-                            backgroundColor: colorFromHex(t.taskType.colorHex)),
-                        title: Text(t.task.title),
-                        subtitle: Text(t.taskType.name),
-                        onTap: () => Navigator.pop(context, t.task.id),
-                      )),
+                  if (mine.isNotEmpty) sectionHeader(profile.name),
+                  ...mine.map(tile),
+                  if (others.isNotEmpty) sectionHeader('Other profiles'),
+                  ...others.map(tile),
                 ],
               ),
       ),
