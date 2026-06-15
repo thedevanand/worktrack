@@ -1,0 +1,69 @@
+name: worktrack
+description: Local-first multi-profile work & time tracker.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management (Riverpod 2.x — stable, code already written against this API)
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Database (plain SQLite; Android FBE protects at-rest data on-device)
+  # TODO: migrate to sqlcipher_flutter_libs once its compileSdk issue is fixed upstream
+  drift: ^2.28.2
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  sqlite3: ^2.9.0
+
+  # Foreground service + persistent notification
+  # Location
+  geolocator: ^14.0.0
+  permission_handler: ^12.0.0
+  # geofence_service is discontinued; will use geofencing_api in Step 9
+  # geofence_service: removed
+
+  # Scheduled daily notifications
+  flutter_local_notifications: ^18.0.0
+  timezone: ^0.9.4
+
+  # Charts
+  fl_chart: ^0.69.2
+
+  # Date formatting
+  intl: ^0.19.0
+
+  # Export / backup (file_picker added in Step 8 when export/import UI is built)
+  csv: ^6.0.0
+  share_plus: ^10.1.4
+
+  # home_widget added in Step 9 (optional)
+  # nfc_manager added in Step 10 (optional)
+
+  # Utilities
+  uuid: ^4.4.2
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  collection: ^1.18.0
+  material_symbols_icons: ^4.2928.1
+  flutter_markdown: ^0.7.7+1
+  markdown: ^7.3.1
+  home_widget: ^0.9.3
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  # Code generation
+  build_runner: ^2.4.12
+  drift_dev: ^2.28.0
+  riverpod_generator: ^2.6.4
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0

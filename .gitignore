@@ -1,0 +1,19 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.g.dart
+*.freezed.dart
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug.keystore
+*.jks
+*.keystore
+
+# macOS/iOS (not a target but may exist)
+ios/Pods/
+.DS_Store
